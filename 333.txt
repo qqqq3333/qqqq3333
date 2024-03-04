@@ -1,0 +1,911 @@
+ public abstract IServicio CrearServicio();
+ public override IServicio CrearServicio()
+ {
+     return new Servicio();
+ }
+/********* Controller
+private IServicio oServicio;
+public Controller()
+{
+   oServicio = new AppFarmaciaBackend.Servicios.Implementación.Servicio();
+}
+[HttpGet("/insumos")]
+public IActionResult GetInsumos()
+{
+    List<Insumo> lstInsumos;
+    try
+    {
+        lstInsumos = oServicio.ObtenerInsumos();
+        return Ok(lstInsumos);
+    }
+    catch (Exception)
+    {
+        return StatusCode(500, "Error interno! Intente luego.");
+    }
+}
+        [HttpGet("/detallesFacturasSegunId")]
+        public IActionResult GetDetallesFacturasSegunId(int idFactura)
+        {
+            List<DetalleFactura> lstDetalleFacturas;
+            try
+            {
+                lstDetalleFacturas = oServicio.ObtenerDetalles(idFactura);
+                return Ok(lstDetalleFacturas);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Error interno! Intente luego.");
+            }
+        }
+  [HttpGet("/proxCliente")]
+  public IActionResult getProxCliente()
+  {
+      int prox = 0;
+      try
+      {
+          prox = app.ObtenerProximoCliente();
+          return Ok(prox);
+      }
+      catch (Exception)
+      {
+          return StatusCode(500, "Error interno");
+
+      }
+  }
+[HttpPost("/AltaCliente")]
+     public IActionResult PostCliente(DtoCliente oClientes)
+     {
+         try
+         {
+             if (oClientes == null )
+             {
+                 return BadRequest("Error creando el cliente!");
+             }
+             return Ok(app.CrearCliente(oClientes));
+
+         }
+         catch (Exception)
+         {
+
+             return StatusCode(500, "error interno! Intente luego");
+         }
+     }
+ [HttpDelete("/eliminarCliente")]
+ public IActionResult DelCliente(int id_cliente)
+ {
+     bool eliminar;
+     try
+     {
+         eliminar = oServicio.EliminarCliente(id_cliente);
+         return Ok(eliminar);
+     }
+     catch (Exception)
+     {
+         return StatusCode(500, "Error interno! Intente luego.");
+     }
+ }
+
+      [HttpPut("/modificarCliente")]
+      public IActionResult Put([FromBody] Clientes clientes)
+      {
+          if (clientes != null)
+          {
+              bool result = oServicio.ModificarClientes(clientes);
+              return Ok(result);
+          }
+          else
+          {
+              return BadRequest("Debe ingresar un cliente valido");
+          }
+      }
+*/  
+
+help
+private static HelperDao instancia;
+  private SqlConnection cnn;
+  private HelperDao()
+  {
+      cnn = new SqlConnection("Data Source=;Integrated Security=True");
+  }
+  public static HelperDao ObtenerInstancia()
+  {
+      if (instancia == null)
+      {
+          instancia = new HelperDao();
+      }
+      return instancia;
+  }
+  public SqlConnection ObtenerConexion()
+  { return cnn; }
+
+  public int EjecutarSp(string spNombre, List<Parametro> listaParametros)
+  {
+      int filasAfectadas = 0;
+      SqlTransaction t = null;
+
+      if (cnn != null && cnn.State == ConnectionState.Open)
+          cnn.Close();
+      try
+      {
+          cnn.Open();
+          t = cnn.BeginTransaction();
+          SqlCommand cmd = new SqlCommand(spNombre, cnn, t);
+          cmd.CommandType = CommandType.StoredProcedure;
+
+          if (listaParametros != null)
+          {
+              foreach (Parametro oParametro in listaParametros)
+              {
+                  cmd.Parameters.AddWithValue(oParametro.Nombre, oParametro.Valor);
+              }
+          }
+          filasAfectadas = cmd.ExecuteNonQuery();
+          t.Commit();
+      }
+      catch (SqlException)
+      {
+          if (t != null)
+          { t.Rollback(); }
+      }
+      finally
+      {
+          if (cnn != null && cnn.State == ConnectionState.Open)
+              cnn.Close();
+
+      }
+      return filasAfectadas;
+  }
+  public DataTable ConsultaTabla(string spNombre, List<Parametro> listaParametros)
+  {
+      DataTable dt = new DataTable();
+      cnn.Open();
+      SqlCommand cmd = new SqlCommand(spNombre, cnn);
+      cmd.CommandType = CommandType.StoredProcedure;
+      if (listaParametros != null)
+      {
+          foreach (Parametro oParametro in listaParametros)
+          {
+              cmd.Parameters.AddWithValue(oParametro.Nombre, oParametro.Valor);
+          }
+      }
+      dt.Load(cmd.ExecuteReader());
+      cnn.Close();
+      return dt;
+  }
+  public DataTable Consultar(string nombreSP)
+  {
+      cnn.Open();
+      SqlCommand comando = new SqlCommand();
+      comando.Connection = cnn;
+      comando.CommandType = CommandType.StoredProcedure;
+      comando.CommandText = nombreSP;
+      DataTable tabla = new DataTable();
+      tabla.Load(comando.ExecuteReader());
+      cnn.Close();
+      return tabla;
+  }
+  public int ConsultarEscalar(string nombreSP, string nombreParamOut)
+  {
+      cnn.Open();
+      SqlCommand comando = new SqlCommand();
+      comando.Connection = cnn;
+      comando.CommandType = CommandType.StoredProcedure;
+      comando.CommandText = nombreSP;
+      SqlParameter parametro = new SqlParameter();
+      parametro.ParameterName = nombreParamOut;
+      parametro.SqlDbType = SqlDbType.Int;
+      parametro.Direction = ParameterDirection.Output;
+
+      comando.Parameters.Add(parametro);
+      comando.ExecuteNonQuery();
+      cnn.Close();
+      return (int)parametro.Value;
+  }
+  public int ConsultaEscalarConParametros(string spNombre, string pOutNombre, List<Parametro> listaParametros)
+  {
+      if (cnn != null && cnn.State == ConnectionState.Open)
+          cnn.Close();
+      cnn.Open();
+      SqlCommand cmd = new SqlCommand(spNombre, cnn);
+      cmd.CommandType = CommandType.StoredProcedure;
+
+      if (listaParámetros != null)
+      {
+          foreach (Parametro oParametro in listaParametros)
+          {
+              cmd.Parameters.AddWithValue(oParametro.Nombre, oParametro.Valor);
+          }
+      }
+      SqlParameter pOut = new SqlParameter();
+      pOut.ParameterName = pOutNombre;
+      pOut.DbType = DbType.Int32;
+      pOut.Direction = ParameterDirection.Output;
+      cmd.Parameters.Add(pOut);
+      cmd.ExecuteNonQuery();
+      cnn.Close();
+      return (int)pOut.Value;
+  }
+
+/*
+dao
+ public List<Barrios> ConsultarBarrios()
+ {
+     SqlConnection cnn = HelperDao.ObtenerInstancia().ObtenerConexion();
+     cnn.Open();
+     SqlCommand cmd = new SqlCommand();
+     cmd.Connection = cnn;
+     cmd.CommandText = "cargarBarrios";
+     cmd.CommandType = CommandType.StoredProcedure;
+     DataTable dt = new DataTable();
+     dt.Load(cmd.ExecuteReader());
+     List<Barrios> lstb = new List<Barrios>();
+     foreach (DataRow fila in dt.Rows)
+     {
+         int qbarrioId = Convert.ToInt32(fila[0]);
+         string qnombreBarrio = fila[1].ToString();
+         Barrios b = new Barrios(qbarrioId, qnombreBarrio);
+         lstb.Add(b);
+     }
+     cnn.Close();
+     return lstb;
+ }
+ public bool CrearEntrega(Entrega oEntrega)
+ {
+     bool aux = true;
+     SqlConnection cnn = HelperDB.ObtenerInstancia().ObtenerConexion();
+     SqlTransaction t = null;
+     int nroDetalle = HelperDB.ObtenerInstancia().ConsultaEscalar("SP_PROXIMO_DETALLE_ENTREGA", "@NRO_DETALLE");
+     try
+     {
+         cnn.Open();
+         t = cnn.BeginTransaction();
+         SqlCommand cmdEntrega = new SqlCommand("SP_INSERTAR_ENTREGA", cnn, t);
+         cmdEntrega.CommandType = CommandType.StoredProcedure;
+         cmdEntrega.Parameters.AddWithValue("@id_Entrega", oEntrega.IdEntrega);
+         cmdEntrega.Parameters.AddWithValue("@id_Sucursal", oEntrega.oSucursal.IdSucursal);
+         cmdEntrega.Parameters.AddWithValue("@Fecha", oEntrega.Fecha);
+         cmdEntrega.Parameters.AddWithValue("@Empleado_Log", oEntrega.EmpleadoLogistica);
+         cmdEntrega.Parameters.AddWithValue("@id_Empleado", oEntrega.oEmpleado.IdEmpleado);
+         cmdEntrega.ExecuteNonQuery();
+         SqlCommand cmdDetalle;
+         foreach (DetalleEntrega item in oEntrega.Detalles)
+         {
+             cmdDetalle = new SqlCommand("SP_INSERTAR_DETALLE_ENTREGA", cnn, t);
+             cmdDetalle.CommandType = CommandType.StoredProcedure;
+             cmdDetalle.Parameters.AddWithValue("@id_DetalleEntrega", nroDetalle);
+             cmdDetalle.Parameters.AddWithValue("@id_Insumo", item.oInsumo.IdInsumo);
+             cmdDetalle.Parameters.AddWithValue("@id_Entrega", oEntrega.IdEntrega);
+             cmdDetalle.Parameters.AddWithValue("@Cantidad", item.Cantidad);
+             cmdDetalle.ExecuteNonQuery();
+             nroDetalle++;
+         }
+         t.Commit();
+     }
+     catch (Exception)
+     {
+         if (t != null)
+             t.Rollback();
+         aux = false;
+     }
+     finally
+     {
+         if (cnn != null && cnn.State == ConnectionState.Open)
+             cnn.Close();
+     }
+     return aux;
+ }
+    public bool EliminarCliente(int id_cliente)
+    {
+        bool aux = false;
+        string sp = "SP_ELIMINAR_CLIENTE";
+        List<Parametro> lst = new List<Parametro>();
+        lst.Add(new Parametro("@id_cliente", id_cliente));
+        int filasAfectadas = HelperDao.ObtenerInstancia().EjecutarSp(sp, lst);
+        if (filasAfectadas > 0)
+        {
+            aux = true;
+        }
+        return aux;
+    }
+public bool ModificarClientes(Clientes clientes)
+{
+    bool ok = true;
+    SqlTransaction t = null;
+    SqlConnection cnn = HelperDao.ObtenerInstancia().ObtenerConexion();
+    try
+    {
+        cnn.Open();
+        t = cnn.BeginTransaction();
+        using (SqlCommand cmd = new SqlCommand())
+        {
+            cmd.Transaction = t;
+            cmd.Connection = cnn;
+            cmd.CommandText = "ModificarCliente";
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@id_cliente", clientes.id_cliente);
+            cmd.Parameters.AddWithValue("@nombre", clientes.Nombre);
+            cmd.Parameters.AddWithValue("@apellido", clientes.Apellido);
+            cmd.Parameters.AddWithValue("@fecha_nac", clientes.FechaNac);
+            cmd.Parameters.AddWithValue("@telefono", clientes.Telefono);
+            cmd.Parameters.AddWithValue("@email", clientes.Email);
+            cmd.Parameters.AddWithValue("@id_barrio", clientes.id_barrio);
+            cmd.Parameters.AddWithValue("@calle", clientes.Calle);
+            cmd.Parameters.AddWithValue("@altura", clientes.Altura);
+            cmd.Parameters.AddWithValue("@id_tipo_doc", clientes.id_tipo_doc);
+            cmd.Parameters.AddWithValue("@nro_doc", clientes.NroDoc);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        t.Commit();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error al modificar Cliente: {ex.Message}");
+        t?.Rollback();
+        ok = false;
+    }
+    finally
+    {
+        if (cnn.State == ConnectionState.Open)
+        {
+            cnn.Close();
+        }
+    }
+    return ok;
+}
+   public bool Update(Factura factura)
+   {
+       bool ok = true;
+       SqlTransaction t = null;
+       try
+       {
+           Conectar();
+           t = cnn.BeginTransaction();
+           cmd.Transaction = t;
+           cmd.CommandText = "spActualizarFacturaMaestro";
+           cmd.Parameters.AddWithValue("@nroFactura", factura.IdFactura);
+           cmd.Parameters.AddWithValue("@idCliente", factura.Cliente.IdCliente);
+           cmd.Parameters.AddWithValue("@fecha", factura.Fecha);
+           cmd.Parameters.AddWithValue("@descuento", factura.Descuento);
+           cmd.Parameters.AddWithValue("@idFormaPago", factura.FormaPago);
+           cmd.ExecuteNonQuery();
+           int idDetalle = 1;
+           foreach (Detalle_Facturas detalle in factura.lDetalles)
+           {
+               SqlCommand cmdDetalle = new SqlCommand();
+               cmdDetalle.CommandType = CommandType.StoredProcedure;
+               cmdDetalle.CommandText = "spActualizarFacturaDetalle";
+               cmdDetalle.Connection = cnn;
+               cmdDetalle.Transaction = t;
+               cmdDetalle.Parameters.AddWithValue("@nroFactura", factura.IdFactura);
+               cmdDetalle.Parameters.AddWithValue("@idDetalleFactura", idDetalle);
+               cmdDetalle.Parameters.AddWithValue("@idProducto", detalle.Producto.IdProducto);
+               cmdDetalle.Parameters.AddWithValue("@cantidad", detalle.Cantidad);
+               cmdDetalle.Parameters.AddWithValue("@pre_unitario", detalle.PrecioUnitario);
+               cmdDetalle.ExecuteNonQuery();
+           }
+           t.Commit();
+       }
+       catch (Exception)
+       {
+           t.Rollback();
+           ok = false;
+       }
+       finally
+       {
+           if (cnn.State == ConnectionState.Open)
+           {
+               cnn.Close();
+           }
+       }
+       return ok;
+   }
+
+ public List<Factura> Read(int idCliente)
+ {
+     List<Factura> facturas = new List<Factura>();
+     DataTable tabla = new DataTable();
+     Conectar();
+     cmd.CommandText = "spConsultarFacturas";
+     cmd.Parameters.AddWithValue("@idCliente", idCliente);
+     tabla.Load(cmd.ExecuteReader());
+     foreach (DataRow dr in tabla.Rows)
+     {
+         Factura f = new Factura();
+         f.IdFactura = Convert.ToInt32(dr[0]);
+         f.Cliente = DaoClientes.Instancia().ReadConId(Convert.ToInt32(dr[1]));
+         f.Fecha = Convert.ToDateTime(dr[2]);
+         f.Descuento = Convert.ToInt32(dr[3]);
+         f.FormaPago = Convert.ToInt32(dr[4]);
+         cmd.Parameters.Clear();
+         cmd.CommandText = "spConsultarDetalle";
+         cmd.Parameters.AddWithValue("@idFactura", f.IdFactura);
+         DataTable tablaDetalle = new DataTable();
+         tablaDetalle.Load(cmd.ExecuteReader());
+         foreach (DataRow dr2 in tablaDetalle.Rows)
+         {
+             Detalle_Facturas d = new Detalle_Facturas();
+             d.Producto = DaoProductos.Instancia().ReadConIndice(Convert.ToInt32(dr2[2]));
+             d.Cantidad = Convert.ToInt32(dr2[3]);
+             d.PrecioUnitario = Convert.ToDouble(dr2[4]);
+             f.AgregarDetalle(d);
+         }
+         facturas.Add(f);
+     }
+     Desconectar();
+     return facturas;
+ }
+
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Front.HTTP
+{
+    public class ClientSingleton
+    {
+        private static ClientSingleton Instance;
+        private HttpClient client;
+
+        public ClientSingleton()
+        {
+            client = new HttpClient();
+        }
+
+        public static ClientSingleton GetInstance()
+        {
+            if (Instance == null)
+            {
+                Instance = new ClientSingleton();
+            }
+            return Instance;
+        }
+
+
+        public async Task<string> GetAsync(string url)
+        {
+            var result = await client.GetAsync(url);
+            var content = "";
+            if (result.IsSuccessStatusCode)
+            {
+                content = await result.Content.ReadAsStringAsync();
+            }
+            return content;
+        }
+
+        public async Task<string> PostAsync(string url, string data)
+        {
+            StringContent content = new StringContent(data, Encoding.UTF8,
+            "application/json");
+            var result = await client.PostAsync(url, content);
+            var response = "";
+            if (result.IsSuccessStatusCode)
+                response = await result.Content.ReadAsStringAsync();
+            return response;
+        }
+    }
+}
+
+using Back.Dominio;
+using Back.Servicios.Gestores;
+using Back.Servicios.Interfaz;
+using Front.HTTP;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SqlClient;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace Front.Presentacion
+{
+    public partial class Frm_Alta : Form
+    {
+        IGestorTurno ges;
+        Turno t;
+        public Frm_Alta()
+        {
+            InitializeComponent();
+            ges = new GestorTurno();
+            dtpFecha.Value = DateTime.Now.AddDays(1);
+            t = new Turno();
+
+        }
+
+
+
+
+        private async void btnAceptar_Click(object sender, EventArgs e)
+        {
+            if (dgvDetalles.Rows.Count == 0)
+            {
+                MessageBox.Show("pone algo gato", "Informacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            t.Paciente = txtCliente.Text;
+
+            string url = "https://localhost:7228/guardar";
+            var body = JsonConvert.SerializeObject(t);
+            var result = await ClientSingleton.GetInstance().PostAsync(url, body);
+
+
+            if (result == "true")
+            {
+                MessageBox.Show("Bien ahi", "Exito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("casi", "Lo siento...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+        }
+
+        private void btnCancelar_Click(object sender, EventArgs e)
+        {
+            DialogResult result = MessageBox.Show("¿Está seguro que desea cancelar?", "Salir", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (result == DialogResult.Yes)
+            {
+                this.Dispose();
+
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        private void Frm_Alta_Presupuesto_Load(object sender, EventArgs e)
+        {
+            CargarCombo();
+        }
+
+        private async void CargarCombo()
+        {
+            //completar...
+            string url = "https://localhost:7228/medicos";
+            string result =  await ClientSingleton.GetInstance().GetAsync(url);
+            var lst = JsonConvert.DeserializeObject<List<Medico>>(result);
+
+            cboServicios.DataSource = lst;
+            cboServicios.DisplayMember = "Nombre";
+        }
+
+        private async void btnAgregar_Click(object sender, EventArgs e)
+        {
+            //completar...
+            if (txtCliente.Text == string.Empty)
+            {
+                MessageBox.Show("Debe ingresar su nombre..", "Informacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (cboServicios.SelectedIndex == -1)
+            {
+                MessageBox.Show("Debe seleccionar a su medico..", "Informacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (txtObservaciones.Text == string.Empty)
+            {
+                MessageBox.Show("Cual es el motivo ?", "Informacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (dtpFecha.Value <= DateTime.Now)
+            {
+                MessageBox.Show("Los turnos son de hoy en adelante", "Informacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string fecha = dtpFecha.Value.ToString("dd-MM-yyyy");
+            string hora = cboHora.SelectedItem.ToString();
+
+            Medico med = (Medico)cboServicios.SelectedItem;
+            int matricula = med.Matricula;
+
+            string url = "https://localhost:7228/existe" + "/" + fecha + "/" + hora + "/" + matricula;
+            var body = await ClientSingleton.GetInstance().GetAsync(url);
+            var result = JsonConvert.DeserializeObject<string>(body);
+
+            if (result == "false")
+            {
+                string mot = txtObservaciones.Text;
+                DetalleTurno det = new DetalleTurno(med, mot, fecha, hora);
+
+                if (ExisteEspecialidadFecha(med.Nombre, fecha) == false)
+                {
+                    t.AgregarDetalle(det);
+
+                    dgvDetalles.Rows.Add(new object[] { t.Id, med.Nombre, mot, fecha, hora, "Quitar" });
+                }
+                else
+                {
+                    MessageBox.Show("Ya eligio a este medico", "Informacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+            }
+            else
+            {
+                MessageBox.Show("No tenemos turnos disponibles para este horario", "Informacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+        }
+
+        private bool ExisteEspecialidadFecha(string medico, string fecha)
+        {
+           
+                foreach (DataGridViewRow row in dgvDetalles.Rows)
+                {
+                    if (row.Cells["medico"].Value.ToString() == medico && dgvDetalles != null  && row.Cells["fecha"].Value.ToString() == fecha)
+                    {
+                        return  true;
+                    }
+                }
+            return false;
+            
+        }
+
+
+
+
+
+        private void dgvDetalles_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            
+        }
+
+        private void dgvDetalles_CellContentClick_1(object sender, DataGridViewCellEventArgs e)
+        {
+            if (dgvDetalles.CurrentCell.ColumnIndex == 5)
+            {
+                dgvDetalles.Rows.Remove(dgvDetalles.CurrentRow);
+                //completar...
+            }
+        }
+    }
+}
+using Back.Dominio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Back.Servicios.Interfaz
+{
+    public interface IGestorTurno
+    {
+        List<Medico> GetServicios();
+        bool Save(Turno oTurno);
+        bool ExisteTurno(string fecha, string hora, int matricula);
+
+        bool EliminarTurno(int id_turno);
+
+        bool ModificarTurno(Turno turno);
+    }
+}
+using Back.Acceso_a_datos;
+using Back.Acceso_a_datos.Dao;
+using Back.Dominio;
+using Back.Servicios.Interfaz;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Back.Servicios.Gestores
+{
+    public class GestorTurno : IGestorTurno
+    {
+        IDao dao;
+        public GestorTurno()
+        {
+            dao = new Dao();
+        }
+
+        public bool ExisteTurno(string fecha, string hora,int matricula)
+        {
+            return dao.ExisteTurno(fecha,hora, matricula);
+        }
+
+        public List<Medico> GetServicios()
+        {
+            return dao.GetServicios();
+        }
+
+        public bool Save(Turno oTurno)
+        {
+            return dao.Save(oTurno);
+        }
+
+        public bool EliminarTurno(int id_turno) 
+        {
+            return dao.EliminarTurno(id_turno);
+        
+        }
+
+        public bool ModificarTurno(Turno turno)
+        {
+            return dao.ModificarTurno(turno) ;
+        }
+    }
+}
+     public bool ModificarTurno(Turno turno)
+     {
+         bool aux = true;
+         SqlConnection cnn = HelperDB.GetInstance().GetConnection();
+         SqlTransaction t = null;
+         
+
+         try
+         {
+             cnn.Open();
+             t = cnn.BeginTransaction();
+
+             string spModificarTurno = "SP_MODIFICA_TURNO";
+             List<Parametro> lstModificarTurno = new List<Parametro>();
+             lstModificarTurno.Add(new Parametro("@Id", turno.Id));
+             lstModificarTurno.Add(new Parametro("@Paciente", turno.Paciente));
+             int filasAfectadas = HelperDB.GetInstance().EjecutarSp(spModificarTurno, lstModificarTurno);
+
+
+             if (filasAfectadas > 0)
+             {
+                 string spEliminarDetalles = "sp_eliminar_detalles";
+                 List<Parametro> lstEliminarDetalles = new List<Parametro>();
+                 lstEliminarDetalles.Add(new Parametro("@Id", turno.Id));
+                 HelperDB.GetInstance().EjecutarSp(spEliminarDetalles, lstEliminarDetalles);
+             }
+
+             SqlCommand cmdDetalle;
+
+             if (cnn != null && cnn.State == ConnectionState.Closed)
+                 cnn.Open();
+
+             foreach (DetalleTurno item in turno.ldet)
+             {
+                 cmdDetalle = new SqlCommand("SP_INSERTAR_DETALLES", cnn, t);
+                 cmdDetalle.CommandType = CommandType.StoredProcedure;
+                 cmdDetalle.Parameters.AddWithValue("@id_turno", turno.Id);
+                 cmdDetalle.Parameters.AddWithValue("@matricula", item.Med.Matricula);
+                 cmdDetalle.Parameters.AddWithValue("@fecha", item.Fecha);
+                 cmdDetalle.Parameters.AddWithValue("@motivo", item.Motivo);
+                 cmdDetalle.Parameters.AddWithValue("@hora", item.Hora);
+                 cmdDetalle.ExecuteNonQuery();
+                 
+             }
+
+         }
+         finally
+         {
+             if (cnn != null && cnn.State == ConnectionState.Open)
+                 cnn.Close();
+         }
+
+         return aux;
+     }
+ }
+       public bool Save(Turno oTurno)
+       {
+           bool aux = true;
+           SqlConnection cnn = HelperDB.GetInstance().GetConnection();
+           SqlTransaction t = null;
+
+           try
+           {
+               cnn.Open();
+               t = cnn.BeginTransaction();
+
+               SqlCommand cmd = new SqlCommand("INSERTAR_MAESTRO", cnn, t);
+               cmd.CommandType = CommandType.StoredProcedure;
+               SqlParameter param = new SqlParameter("@id", SqlDbType.Int);
+               param.Direction = ParameterDirection.Output;
+               cmd.Parameters.Add(param);
+               cmd.Parameters.AddWithValue("@paciente", oTurno.Paciente);
+               cmd.ExecuteNonQuery();
+
+               int idTurno = (int)param.Value;
+
+               foreach (DetalleTurno det in oTurno.ldet)
+               {
+                   SqlCommand com = new SqlCommand("SP_INSERTAR_DETALLES", cnn, t);
+                   com.CommandType = CommandType.StoredProcedure;
+
+                   com.Parameters.AddWithValue("@id_turno", idTurno);
+                   com.Parameters.AddWithValue("@matricula", det.Med.Matricula);
+                   com.Parameters.AddWithValue("@motivo", det.Motivo);
+                   com.Parameters.AddWithValue("@fecha", det.Fecha);
+                   com.Parameters.AddWithValue("@hora", det.Hora);
+                   com.ExecuteNonQuery();
+               }
+               t.Commit();
+           }
+           catch
+           {
+               if (t != null)
+               {
+                   t.Rollback();
+                   aux = false;
+               }
+           }
+           finally
+           {
+               if (cnn != null)
+               {
+                   cnn.Close();
+               }
+           }
+           return aux;
+       }
+      public List<Medico> GetServicios()
+      {
+          List<Medico> lst = new List<Medico>();
+          DataTable dt = HelperDB.GetInstance().Consultar("SP_CONSULTAR_MEDICOS");
+
+          foreach (DataRow row in dt.Rows)
+          {
+              int mat = Convert.ToInt32(row["matricula"].ToString());
+              string nom = row["nombre"].ToString();
+              string ape = row["apellido"].ToString();
+              string espe = row["especialidad"].ToString();
+
+              lst.Add(new Medico(mat, nom, ape, espe));
+          }
+          return lst;
+      }
+    public bool ExisteTurno(string fecha, string hora, int matricula)
+    {
+
+
+
+
+        bool aux = false;
+        SqlConnection cnn = HelperDB.GetInstance().GetConnection();
+
+        try
+        {
+            cnn.Open();
+            SqlCommand cmd = new SqlCommand("SP_CONTAR_TURNOS", cnn);
+            cmd.CommandType = CommandType.StoredProcedure;
+            SqlParameter param = new SqlParameter("@ctd_turnos", SqlDbType.Int);
+            param.Direction = ParameterDirection.Output;
+            cmd.Parameters.Add(param);
+            cmd.Parameters.AddWithValue("@fecha", fecha);
+            cmd.Parameters.AddWithValue("@hora", hora);
+            cmd.Parameters.AddWithValue("@matricula ", matricula);
+            cmd.ExecuteNonQuery();
+
+            int cant = (int)param.Value;
+
+            if (cant > 0)
+            {
+                aux = true;
+            }
+            else
+            {
+                aux = false;
+            }
+
+        }
+        catch
+        {
+
+        }
+        finally
+        {
+            if (cnn != null)
+            {
+                cnn.Close();
+            }
+        }
+        return aux;
+    }
